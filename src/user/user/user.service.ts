@@ -64,6 +64,7 @@ export class UserService {
 
   async get(user: User): Promise<UserResponse>
   {
+    //langsung kembalikan data dari auth
     return this.toUserResponse(user);
   }
 
