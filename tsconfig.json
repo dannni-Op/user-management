@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "exclued": ["node_modules"],
     "module": "commonjs",
     "declaration": true,
     "removeComments": true,

@@ -1,30 +1,22 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { ZodError } from 'zod';
+import { ValidationError } from "class-validator";
 
-const PrismaError = Prisma.PrismaClientKnownRequestError;
-@Catch( HttpException, ZodError, PrismaError)
+@Catch( HttpException, ValidationError)
 export class ErrorFilter<T> implements ExceptionFilter {
   catch(exception: T, host: ArgumentsHost) {
 
     const response = host.switchToHttp().getResponse();
 
-    if( exception instanceof HttpException)
-    {
-      response.status(exception.getStatus()).json({
-        errors: exception.message,
-      });
-    }
-    else if( exception instanceof PrismaError)
-    {
-      response.status(400).json({
-        errors: "Prisma Error",
-      });
-    }
-    else if( exception instanceof ZodError)
+    if( exception instanceof ValidationError)
     {
       response.status(400).json({
         errors: "Validation Error",
+      });
+    }
+    else if( exception instanceof HttpException)
+    {
+      response.status(exception.getStatus()).json({
+        errorsss: exception.message,
       });
     }
     else

@@ -1,18 +1,19 @@
-import { HttpException, Injectable } from '@nestjs/common';
-import { UserRepository } from './user.repository';
-import { LoginUserRequest, RegisterUserRequest, UpdateUserRequest, UserResponse } from 'src/model/user.model';
-import { ValidationService } from 'src/common/validation/validation.service';
-import { UserValidation } from './user.validation';
+import { HttpException, Inject, Injectable } from '@nestjs/common';
 import * as bcrypt from "bcrypt";
-import { User } from '@prisma/client';
 import { v4 as uuid } from "uuid";
+import { Repository } from 'typeorm';
+import { User } from './user.entity';
+import { UserDto } from './dto/user';
+import { CreateUserDto } from './dto/create-user';
+import { LoginUserDto } from './dto/login-user';
+import { UpdateUserDto } from './dto/update-user';
 
 @Injectable()
 export class UserService {
 
-  constructor(private userRepository: UserRepository, private validationService: ValidationService) {}
+  constructor(@Inject("USER_REPOSITORY") private userRepository: Repository<User>) {}
 
-  toUserResponse(user: User): UserResponse
+  toUserResponse(user: User ): UserDto
   {
     return {
       id: user.id,
@@ -22,30 +23,38 @@ export class UserService {
     }
   }
 
-  async register(request: RegisterUserRequest ): Promise<UserResponse>
+  async register(request: CreateUserDto ): Promise<UserDto>
   {
-    //validasi request body
-    const registerRequest = this.validationService.validate(UserValidation.CREATE, request);
-
     //check username unique
-    const userExist = await this.userRepository.getByUsername(request.username);
+    const userExist = await this.userRepository.findOne({
+      where: {
+        username: request.username
+      }
+    });
     if( userExist ) throw new HttpException("Username already exist!", 400);
 
     //hash password
     request.password = await bcrypt.hash(request.password, 10);
 
     //kembalikan data user
-    const user: User = await this.userRepository.register(request);
+    const createRequest = new User();
+    createRequest.username = request.username;
+    createRequest.password = request.password;
+    createRequest.name = request.name;
+    createRequest.email = request.email;
+
+    const user: User = await this.userRepository.save(request);
     return this.toUserResponse(user);
   }
 
-  async login(request: LoginUserRequest): Promise<UserResponse>
+  async login(request: LoginUserDto): Promise<UserDto>
   {
-    //validasi request body
-    const loginRequest = this.validationService.validate(UserValidation.LOGIN, request);
-
     //check ada username atau tidak
-    let user: User | null = await this.userRepository.getByUsername(request.username);
+    let user: User | null = await this.userRepository.findOne({
+      where: {
+        username: request.username,
+      }
+    });
     if( !user ) throw new HttpException("Username or password is wrong!", 400);
 
     //password body, password in db
@@ -55,28 +64,34 @@ export class UserService {
     const token = uuid();
 
     //setToken
-    user = await this.userRepository.setToken(user.id, token);
-    const result: UserResponse = this.toUserResponse(user);
+    let data = await this.userRepository.update({
+      username: request.username,
+    }, {
+      token: token,
+    });
+
+    const result: UserDto = this.toUserResponse(user);
     result.token = token;
 
     return result;
   }
 
-  async get(user: User): Promise<UserResponse>
+  async get(user: User): Promise<UserDto>
   {
     //langsung kembalikan data dari auth
     return this.toUserResponse(user);
   }
 
-  async update(user: User, request: UpdateUserRequest): Promise<UserResponse>
+  async update(user: User, request: UpdateUserDto): Promise<UserDto>
   {
-    //validasi request body
-    const updateRequest = this.validationService.validate(UserValidation.UPDATE, request);
-
     if( request.username )
     {
       //check username supaya username tetap unik
-      const userExist = await this.userRepository.getByUsername(request.username);
+      const userExist = await this.userRepository.findOne({
+        where: {
+          username: request.username,
+        }
+      });
       if( userExist && request.username != user.username ) throw new HttpException("Username already exist!", 400);
     }
 
@@ -88,13 +103,20 @@ export class UserService {
 
     //kembalikan data user;
     const result = await this.userRepository.update(user.id, request);
-    return this.toUserResponse(result);
+    const data = await this.userRepository.findOne({
+      where: {
+        id: user.id,
+      }
+    })
+    return this.toUserResponse(data);
   }
 
   async logout(user: User): Promise<string>
   {
     //hapus token 
-    const result = await this.userRepository.deleteToken(user.id);
+    const result = await this.userRepository.update(user.id, {
+      token: null,
+    });
     return "OK";
   }
 }

@@ -1,11 +1,11 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
-import { User } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { Injectable, NestMiddleware, Inject } from '@nestjs/common';
+import { User } from 'src/user/user/user.entity';
+import { DataSource } from 'typeorm';
 
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
 
-  constructor(private prismaService: PrismaService) {}
+  constructor(@Inject("DATA_SOURCE") private dataSource: DataSource) {}
 
   async use(req: any, res: any, next: () => void) {
     //hasil dari headers object
@@ -13,7 +13,9 @@ export class AuthMiddleware implements NestMiddleware {
 
     if( token )
     {
-      const user: User = await this.prismaService.user.findFirst({
+      // ambil data user
+      const userRepository = this.dataSource.getRepository(User);
+      const user = await userRepository.findOne({
         where: {
           token: token,
         }

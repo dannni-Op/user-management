@@ -1,9 +1,12 @@
 import { Body, Controller, Delete, Get, Post, Put, } from '@nestjs/common';
 import { Auth } from 'src/common/auth/auth.decorator';
 import { UserService } from './user.service';
-import { LoginUserRequest, RegisterUserRequest, UserResponse, UpdateUserRequest } from 'src/model/user.model';
-import { WebResponse } from 'src/model/web.model';
-import { User } from '@prisma/client';
+import { WebResponse } from './dto/web';
+import { CreateUserDto } from './dto/create-user';
+import { User } from './user.entity';
+import { UserDto } from './dto/user';
+import { LoginUserDto } from './dto/login-user';
+import { UpdateUserDto } from './dto/update-user';
 
 @Controller("/api/users")
 export class UserController {
@@ -11,36 +14,37 @@ export class UserController {
   constructor(private userService: UserService) {}
 
   @Post("/register")
-  async register(@Body() request: RegisterUserRequest): Promise<WebResponse<UserResponse>>
+  async register(@Body() request: CreateUserDto): Promise<WebResponse<UserDto>>
   {
-    const user: UserResponse = await this.userService.register(request); 
+    const user: UserDto = await this.userService.register(request); 
     return {
       data: user,
     }
   }
 
   @Post("/login")
-  async login(@Body() request: LoginUserRequest): Promise<WebResponse<UserResponse>>
+  async login(@Body() request: LoginUserDto): Promise<WebResponse<UserDto>>
   {
-    const user: UserResponse = await this.userService.login(request); 
+    const user: UserDto = await this.userService.login(request); 
     return {
       data: user,
     }
   }
 
   @Get("/current")
-  async get(@Auth() user: User): Promise<WebResponse<UserResponse>>
+  async get(@Auth() user: User): Promise<WebResponse<UserDto>>
   {
-    const result: UserResponse = await this.userService.get(user);
+    const result: UserDto = await this.userService.get(user);
     return {
       data: result,
     }
   }
 
   @Put("/current")
-  async put(@Auth() user: User, @Body() request: UpdateUserRequest): Promise<WebResponse<UserResponse>>
+  async put(@Auth() user: User, @Body() request: UpdateUserDto): Promise<WebResponse<UserDto>>
   {
-    const result: UserResponse = await this.userService.update(user, request);
+    request.id = user.id;
+    const result: UserDto = await this.userService.update(user, request);
     return {
       data: result,
     }
